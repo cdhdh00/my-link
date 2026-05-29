@@ -1,30 +1,14 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { Link } from "../data/links"
 import { Card, CardContent } from "@/components/ui/card"
 import { LinkAddDialog } from "@/components/link-add-dialog"
 import { LinkCard } from "@/components/link-card"
-import { RiLoader4Line, RiGoogleFill, RiSparklingLine, RiLinksLine, RiShieldUserLine, RiSmartphoneLine } from "@remixicon/react"
-import { db, auth, googleProvider } from "@/lib/firebase"
-import {
-  onAuthStateChanged,
-  signInWithPopup,
-  signOut,
-  User,
-} from "firebase/auth"
-import {
-  collection,
-  getDocs,
-  query,
-  orderBy,
-  addDoc,
-  setDoc,
-  serverTimestamp,
-  doc,
-  updateDoc,
-  deleteDoc,
-} from "firebase/firestore"
+import { RiLoader4Line, RiGoogleFill, RiSparklingLine, RiLinksLine, RiShieldUserLine, RiSmartphoneLine, RiBarChartGroupedLine } from "@remixicon/react"
+import { auth, googleProvider } from "@/lib/firebase"
+import { signInWithPopup, signOut, User } from "firebase/auth"
 import {
   Dialog,
   DialogContent,
@@ -34,7 +18,10 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import { Header } from "@/components/header"
+import { GlobalHeader } from "@/components/global-header"
+import { ProfileEditDialog } from "@/components/profile-edit-dialog"
+import { useAuthSync, useProfile } from "@/hooks/use-profile"
+import { useLinks, useAddLink, useUpdateLink, useDeleteLink } from "@/hooks/use-links"
 
 // Premium UX를 위한 스켈레톤 로더 컴포넌트
 const SkeletonLoader = () => (
@@ -58,90 +45,19 @@ const SkeletonLoader = () => (
 )
 
 export default function Page() {
-  const [user, setUser] = useState<User | null>(null)
-  const [isAuthLoading, setIsAuthLoading] = useState(true)
+  const router = useRouter()
+  // Auth 상태를 React Query 캐시에 동기화 (전역 레이아웃/앱 수준 호출이 더 좋으나 현재 구조상 여기서 호출)
+  useAuthSync()
+
+  const { data: user, isLoading: isAuthLoading } = useProfile()
   const [isLoggingIn, setIsLoggingIn] = useState(false)
-
-  const [links, setLinks] = useState<Link[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [isUpdating, setIsUpdating] = useState(false)
   const [linkToDelete, setLinkToDelete] = useState<Link | null>(null)
-  const [isDeleting, setIsDeleting] = useState(false)
 
-  // Auth 상태 변경 실시간 구독
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      setUser(currentUser)
-      setIsAuthLoading(false)
-
-      if (currentUser) {
-        try {
-          // 사용자 로그인 성공 시, users/{uid} 문서에 상세 메타데이터 저장 및 병합
-          const userRef = doc(db, "users", currentUser.uid)
-          await setDoc(
-            userRef,
-            {
-              email: currentUser.email || "",
-              displayName: currentUser.displayName || "",
-              photoURL: currentUser.photoURL || "",
-              updatedAt: serverTimestamp(),
-            },
-            { merge: true }
-          )
-        } catch (error) {
-          console.error("사용자 정보 데이터베이스 저장 실패:", error)
-        }
-      }
-    })
-    return () => unsubscribe()
-  }, [])
-
-  // 유저 로그인 상태에 따른 링크 패치 트리거
-  useEffect(() => {
-    if (!isAuthLoading) {
-      if (user) {
-        fetchLinks(true)
-      } else {
-        setLinks([])
-        setIsLoading(false)
-      }
-    }
-  }, [user, isAuthLoading])
-
-  // Firestore에서 개인화된 링크 목록 일회성 패치
-  const fetchLinks = async (showLoading = false) => {
-    if (!user) return
-    
-    if (showLoading) {
-      setIsLoading(true)
-    }
-    try {
-      const q = query(
-        collection(db, "users", user.uid, "links"),
-        orderBy("createdAt", "desc")
-      )
-      const querySnapshot = await getDocs(q)
-      const fetchedLinks: Link[] = []
-      querySnapshot.forEach((doc) => {
-        const data = doc.data()
-        fetchedLinks.push({
-          id: doc.id,
-          title: data.title || "",
-          url: data.url || "",
-          icon: data.icon || "",
-        })
-      })
-      setLinks(fetchedLinks)
-    } catch (error) {
-      console.error(
-        "Firestore에서 링크 데이터를 가져오는 중 오류가 발생했습니다:",
-        error
-      )
-    } finally {
-      setIsLoading(false)
-      setIsUpdating(false)
-    }
-  }
+  // 링크 패칭 및 옵티미스틱 업데이트 훅 연결
+  const { data: links = [], isLoading: isLinksLoading } = useLinks(user?.uid)
+  const addLinkMutation = useAddLink(user?.uid)
+  const updateLinkMutation = useUpdateLink(user?.uid)
+  const deleteLinkMutation = useDeleteLink(user?.uid)
 
   const handleLogin = async () => {
     setIsLoggingIn(true)
@@ -163,77 +79,16 @@ export default function Page() {
   }
 
   const handleAddLink = async (newLink: Link) => {
-    if (!user) return
-    setIsUpdating(true)
-    try {
-      await addDoc(collection(db, "users", user.uid, "links"), {
-        title: newLink.title,
-        url: newLink.url,
-        icon: newLink.icon || "",
-        createdAt: serverTimestamp(),
-      })
-      // 명시적으로 데이터를 다시 가져와 화면 갱신
-      await fetchLinks()
-    } catch (error) {
-      console.error(
-        "Firestore에 링크를 저장하는 도중 오류가 발생했습니다:",
-        error
-      )
-      setIsUpdating(false)
-      throw error // 하위 컴포넌트(dialog)에서 에러 캐치를 진행할 수 있도록 전파합니다.
-    }
+    await addLinkMutation.mutateAsync(newLink)
   }
 
   const handleUpdateLink = async (id: string, title: string, url: string) => {
-    if (!user) return
-    setIsUpdating(true)
-    try {
-      let domain = ""
-      try {
-        const urlObj = new URL(url)
-        domain = urlObj.hostname
-      } catch (error) {
-        console.warn("도메인 추출 실패, 기본값 사용:", error)
-        domain = "default"
-      }
-      const icon = `https://www.google.com/s2/favicons?domain=${domain}&sz=64`
-
-      const linkRef = doc(db, "users", user.uid, "links", id)
-      await updateDoc(linkRef, {
-        title: title,
-        url: url,
-        icon: icon,
-      })
-      // 명시적으로 데이터를 다시 가져와 화면 갱신
-      await fetchLinks()
-    } catch (error) {
-      console.error(
-        "Firestore에서 링크를 업데이트하는 중 오류가 발생했습니다:",
-        error
-      )
-      setIsUpdating(false)
-      throw error
-    }
+    await updateLinkMutation.mutateAsync({ id, title, url })
   }
 
   const handleDeleteLink = async (id: string) => {
-    if (!user) return
-    setIsDeleting(true)
-    try {
-      const linkRef = doc(db, "users", user.uid, "links", id)
-      await deleteDoc(linkRef)
-      // 명시적으로 데이터를 다시 가져와 화면 갱신
-      await fetchLinks()
-      setLinkToDelete(null)
-    } catch (error) {
-      console.error(
-        "Firestore에서 링크를 삭제하는 중 오류가 발생했습니다:",
-        error
-      )
-      throw error
-    } finally {
-      setIsDeleting(false)
-    }
+    await deleteLinkMutation.mutateAsync(id)
+    setLinkToDelete(null)
   }
 
   // 초기 인증 정보 관찰 대기 상태인 경우
@@ -250,22 +105,24 @@ export default function Page() {
     )
   }
 
-  const getPageDisplayName = (email: string | null) => {
-    if (!email) return "내"
-    return email.split("@")[0]
+  const handleProfileUpdate = () => {
+    // TanStack Query로 프로필 업데이트 후 캐시가 자동 갱신되므로
+    // 별도의 로컬 state 갱신이 필요하지 않습니다.
   }
 
-  const pageDisplayName = getPageDisplayName(user?.email || null)
+  const getPageDisplayName = (currentUser: User | null) => {
+    if (!currentUser) return "내"
+    if (currentUser.displayName) return currentUser.displayName
+    if (currentUser.email) return currentUser.email.split("@")[0]
+    return "내"
+  }
+
+  const pageDisplayName = getPageDisplayName(user ?? null)
 
   return (
     <div className="flex min-h-svh flex-col bg-[#F8FAFC] dark:bg-[#0F172A]">
       {/* 글로벌 상단 헤더 */}
-      <Header
-        user={user}
-        onLogin={handleLogin}
-        onLogout={handleLogout}
-        isLoggingIn={isLoggingIn}
-      />
+      <GlobalHeader />
 
       <main className="flex flex-1 flex-col items-center p-6">
         {user ? (
@@ -273,20 +130,27 @@ export default function Page() {
           <div className="mt-8 flex w-full max-w-[480px] flex-col gap-8 pb-20">
             {/* Header Section */}
             <div className="space-y-3 text-center">
-              <div className="mb-2 inline-flex h-16 w-16 items-center justify-center rounded-3xl bg-white shadow-xl ring-1 ring-slate-200/50 transition-transform hover:rotate-3 dark:bg-slate-800 dark:ring-slate-700/50">
-                {user.photoURL ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={user.photoURL}
-                    alt={pageDisplayName}
-                    className="h-full w-full rounded-3xl object-cover ring-2 ring-primary/25"
-                    referrerPolicy="no-referrer"
-                  />
-                ) : (
-                  <span className="text-3xl font-black text-primary">
-                    {pageDisplayName.charAt(0).toUpperCase()}
-                  </span>
-                )}
+              <div className="relative mx-auto mb-2 inline-block">
+                <div className="inline-flex h-16 w-16 items-center justify-center rounded-3xl bg-white shadow-xl ring-1 ring-slate-200/50 transition-transform hover:rotate-3 dark:bg-slate-800 dark:ring-slate-700/50">
+                  {user.photoURL ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={user.photoURL}
+                      alt={pageDisplayName}
+                      className="h-full w-full rounded-3xl object-cover ring-2 ring-primary/25"
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    <span className="text-3xl font-black text-primary">
+                      {pageDisplayName.charAt(0).toUpperCase()}
+                    </span>
+                  )}
+                </div>
+                
+                {/* 프로필 수정 버튼 배치 */}
+                <div className="absolute -bottom-1 -right-2 z-10 scale-90">
+                  <ProfileEditDialog user={user as User} onUpdateComplete={handleProfileUpdate} />
+                </div>
               </div>
               <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">
                 {pageDisplayName} 마이링크
@@ -296,12 +160,25 @@ export default function Page() {
               </p>
             </div>
 
+            {/* 통계 페이지 바로가기 링크 버튼 */}
+            <div className="flex justify-end">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => router.push("/stats")}
+                className="h-9 gap-1.5 rounded-xl border-slate-200 bg-white px-3.5 text-xs font-bold text-slate-600 shadow-sm hover:bg-slate-50 hover:text-primary dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+              >
+                <RiBarChartGroupedLine size={16} className="text-primary" />
+                <span>통계 및 클릭수 분석</span>
+              </Button>
+            </div>
+
             {/* Action Section */}
             <LinkAddDialog onAdd={handleAddLink} />
 
             {/* Links List Section */}
             <div className="relative flex min-h-[120px] flex-col gap-4">
-              {isUpdating && (
+              {(addLinkMutation.isPending || updateLinkMutation.isPending) && (
                 <div className="absolute inset-0 z-10 flex animate-in flex-col items-center justify-center rounded-3xl bg-[#F8FAFC]/75 backdrop-blur-[2px] transition-all duration-300 fade-in dark:bg-[#0F172A]/75">
                   <div className="flex flex-col items-center gap-3 rounded-2xl bg-white p-6 shadow-lg ring-1 ring-slate-200/50 dark:bg-slate-900 dark:ring-slate-800/50">
                     <RiLoader4Line
@@ -315,13 +192,14 @@ export default function Page() {
                 </div>
               )}
 
-              {isLoading ? (
+              {isLinksLoading ? (
                 <SkeletonLoader />
               ) : links.length > 0 ? (
                 links.map((link) => (
                   <LinkCard
                     key={link.id}
                     link={link}
+                    ownerUid={user?.uid}
                     onUpdate={handleUpdateLink}
                     onDeleteTrigger={setLinkToDelete}
                   />
@@ -454,16 +332,16 @@ export default function Page() {
               variant="outline"
               onClick={() => setLinkToDelete(null)}
               className="h-11 flex-1 rounded-xl border-slate-200 text-sm font-semibold dark:border-slate-800 dark:text-slate-300 dark:hover:bg-slate-800"
-              disabled={isDeleting}
+              disabled={deleteLinkMutation.isPending}
             >
               취소
             </Button>
             <Button
               onClick={() => linkToDelete && handleDeleteLink(linkToDelete.id)}
               className="h-11 flex-1 rounded-xl bg-red-600 text-sm font-bold text-white shadow-sm shadow-red-500/20 hover:bg-red-700"
-              disabled={isDeleting}
+              disabled={deleteLinkMutation.isPending}
             >
-              {isDeleting ? (
+              {deleteLinkMutation.isPending ? (
                 <RiLoader4Line className="animate-spin" size={20} />
               ) : (
                 "삭제하기"

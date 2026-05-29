@@ -12,6 +12,8 @@ const fontMono = Geist_Mono({
   variable: "--font-mono",
 })
 
+import { QueryProvider } from "@/components/providers/query-provider"
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -29,10 +31,12 @@ export default function RootLayout({
       )}
     >
       <body>
-        <ThemeProvider>
-          {children}
-          <Toaster richColors />
-        </ThemeProvider>
+        <QueryProvider>
+          <ThemeProvider>
+            {children}
+            <Toaster richColors />
+          </ThemeProvider>
+        </QueryProvider>
       </body>
     </html>
   )

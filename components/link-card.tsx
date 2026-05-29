@@ -18,7 +18,10 @@ import {
   RiLoader4Line,
   RiLink,
   RiText,
+  RiCursorLine,
 } from "@remixicon/react"
+import { doc, updateDoc, increment } from "firebase/firestore"
+import { db } from "@/lib/firebase"
 
 // Zod 스키마 정의 (추가 폼과 동일한 검증 로직 적용)
 const linkSchema = z.object({
@@ -50,13 +53,27 @@ type LinkFormValues = z.infer<typeof linkSchema>
 
 interface LinkCardProps {
   link: Link
-  onUpdate: (id: string, title: string, url: string) => Promise<void>
-  onDeleteTrigger: (link: Link) => void
+  ownerUid?: string
+  showClicks?: boolean
+  onUpdate?: (id: string, title: string, url: string) => Promise<void>
+  onDeleteTrigger?: (link: Link) => void
 }
 
-export function LinkCard({ link, onUpdate, onDeleteTrigger }: LinkCardProps) {
+export function LinkCard({ link, ownerUid, showClicks = true, onUpdate, onDeleteTrigger }: LinkCardProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+
+  const handleClick = async () => {
+    if (!ownerUid || !link.id) return
+    try {
+      const linkRef = doc(db, "users", ownerUid, "links", link.id)
+      await updateDoc(linkRef, {
+        clicks: increment(1),
+      })
+    } catch (error) {
+      console.error("클릭 수 증가 중 오류 발생:", error)
+    }
+  }
 
   const {
     register,
@@ -94,7 +111,9 @@ export function LinkCard({ link, onUpdate, onDeleteTrigger }: LinkCardProps) {
       if (!/^https?:\/\//i.test(finalUrl)) {
         finalUrl = "https://" + finalUrl
       }
-      await onUpdate(link.id, data.title.trim(), finalUrl)
+      if (onUpdate) {
+        await onUpdate(link.id, data.title.trim(), finalUrl)
+      }
       setIsEditing(false)
     } catch (error) {
       console.error("링크 수정 중 오류가 발생했습니다:", error)
@@ -232,6 +251,7 @@ export function LinkCard({ link, onUpdate, onDeleteTrigger }: LinkCardProps) {
           href={link.url}
           target="_blank"
           rel="noopener noreferrer"
+          onClick={handleClick}
           className="group/link flex min-w-0 flex-1 items-center gap-4 rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-primary"
         >
           <div className="relative flex h-12 w-12 flex-shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-slate-50 ring-1 ring-slate-100 transition-transform duration-300 group-hover/link:scale-105 dark:bg-slate-800 dark:ring-slate-700">
@@ -250,36 +270,49 @@ export function LinkCard({ link, onUpdate, onDeleteTrigger }: LinkCardProps) {
             <span className="block truncate text-lg font-bold text-slate-800 transition-colors group-hover/link:text-primary dark:text-slate-100">
               {link.title}
             </span>
-            <span className="mt-0.5 block truncate text-xs text-slate-400 dark:text-slate-500">
-              {link.url.replace(/^https?:\/\//, "")}
-            </span>
+            <div className="mt-0.5 flex flex-wrap items-center gap-x-2.5 gap-y-1">
+              <span className="truncate text-xs text-slate-400 dark:text-slate-500">
+                {link.url.replace(/^https?:\/\//, "")}
+              </span>
+              {showClicks && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-slate-50 px-2 py-0.5 text-[10px] font-semibold text-slate-500 ring-1 ring-inset ring-slate-500/10 dark:bg-slate-800/50 dark:text-slate-400 dark:ring-slate-400/10" title={`클릭 수: ${link.clicks || 0}회`}>
+                  <RiCursorLine size={10} />
+                  <span>{link.clicks || 0}</span>
+                </span>
+              )}
+            </div>
           </div>
         </a>
 
         {/* 제어 영역 (항상 노출되는 수정, 삭제, 외부 링크 버튼) */}
         <div className="flex flex-shrink-0 items-center gap-1.5">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleStartEdit}
-            className="h-8 w-8 rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-primary dark:hover:bg-slate-800"
-            title="링크 수정"
-          >
-            <RiPencilLine size={16} />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => onDeleteTrigger(link)}
-            className="h-8 w-8 rounded-lg text-slate-400 transition-colors hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-950/20"
-            title="링크 삭제"
-          >
-            <RiDeleteBinLine size={16} />
-          </Button>
+          {onUpdate && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleStartEdit}
+              className="h-8 w-8 rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-primary dark:hover:bg-slate-800"
+              title="링크 수정"
+            >
+              <RiPencilLine size={16} />
+            </Button>
+          )}
+          {onDeleteTrigger && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => onDeleteTrigger(link)}
+              className="h-8 w-8 rounded-lg text-slate-400 transition-colors hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-950/20"
+              title="링크 삭제"
+            >
+              <RiDeleteBinLine size={16} />
+            </Button>
+          )}
           <a
             href={link.url}
             target="_blank"
             rel="noopener noreferrer"
+            onClick={handleClick}
             className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-300 transition-colors hover:bg-slate-100 hover:text-primary dark:text-slate-600 dark:hover:bg-slate-800"
             title="새 탭에서 열기"
           >

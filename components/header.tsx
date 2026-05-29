@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import Link from "next/link"
 import { User } from "firebase/auth"
 import { RiGoogleFill, RiLogoutBoxRLine, RiFileCopyLine, RiCheckLine, RiExternalLinkLine, RiUserLine } from "@remixicon/react"
 import { Button } from "@/components/ui/button"
@@ -31,12 +32,7 @@ export function Header({ user, onLogin, onLogout, isLoggingIn }: HeaderProps) {
     }
   }, [])
 
-  const getDisplayName = (email: string | null) => {
-    if (!email) return "사용자"
-    return email.split("@")[0]
-  }
-
-  const displayName = getDisplayName(user?.email || null)
+  const displayName = user?.displayName || (user?.email ? user.email.split("@")[0] : "사용자")
   const myLinkUrl = `${origin}/${displayName}`
 
   const handleCopyLink = async (e: React.MouseEvent) => {
@@ -57,14 +53,14 @@ export function Header({ user, onLogin, onLogout, isLoggingIn }: HeaderProps) {
     <header className="sticky top-0 z-50 w-full border-b border-slate-200/50 bg-[#F8FAFC]/80 backdrop-blur-md dark:border-slate-800/50 dark:bg-[#0F172A]/80">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
         {/* 로고 영역 */}
-        <div className="flex items-center gap-2">
+        <Link href="/" className="flex items-center gap-2 outline-none">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-white shadow-md shadow-primary/20 transition-transform hover:rotate-3">
             <span className="text-lg font-black">M</span>
           </div>
           <span className="text-lg font-bold tracking-tight text-slate-900 dark:text-white">
             마이링크
           </span>
-        </div>
+        </Link>
 
         {/* 인증 정보 영역 */}
         <div className="flex items-center gap-4">

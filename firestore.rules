@@ -1,0 +1,54 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // 1. 유저 프로필 규칙 (users/{userId})
+    match /users/{userId} {
+      // 읽기: 누구나 가능 (공개 프로필 정보 노출용)
+      allow read: if true;
+      
+      // 쓰기 (생성, 수정, 삭제): 로그인 필수 + 본인 ID(UID)가 문서 ID와 정확히 일치할 때만 가능
+      allow write: if request.auth != null 
+                   && request.auth.uid == userId
+                   && isValidProfile(request.resource.data);
+    }
+    
+    // 2. 개별 링크 규칙 (users/{userId}/links/{linkId})
+    match /users/{userId}/links/{linkId} {
+      // 읽기: 누구나 가능 (방문자도 링크 보드 조회 가능)
+      allow read: if true;
+      
+      // 생성 및 삭제: 로그인 필수 + 본인 ID(UID)의 하위 컬렉션에 쓸 때만 가능
+      allow create, delete: if request.auth != null 
+                            && request.auth.uid == userId
+                            && isValidLink(request.resource.data);
+
+      // 수정: 본인의 정상적인 수정이거나, 비인증 상태에서도 오직 clicks 필드만 업데이트(핵심 필드가 기존과 동일)하는 경우 허용
+      allow update: if (request.auth != null && request.auth.uid == userId && isValidLink(request.resource.data))
+                    || (request.resource.data.title == resource.data.title 
+                        && request.resource.data.url == resource.data.url 
+                        && request.resource.data.icon == resource.data.icon);
+    }
+
+    // --- 헬퍼 검증 함수 ---
+    
+    // 프로필 데이터 유효성 검증
+    function isValidProfile(data) {
+      return data.displayName is string 
+        && data.displayName.size() >= 2 
+        && data.displayName.size() <= 32
+        && data.displayNameLower == data.displayName.lower()
+        && (data.email == null || data.email == request.auth.token.email);
+    }
+
+    // 링크 데이터 유효성 검증
+    function isValidLink(data) {
+      return data.title is string 
+        && data.title.size() >= 1 
+        && data.title.size() <= 32
+        && data.url is string 
+        && (data.url.matches('^https?://.*') || data.url.size() > 0);
+    }
+  }
+}
