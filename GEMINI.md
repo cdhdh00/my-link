@@ -61,6 +61,10 @@
 - **Google Favicon API:** 링크 등록 시 아이콘 추출을 위해 `https://www.google.com/s2/favicons?domain=[domain]&sz=64` 패턴을 활용합니다.
 - **Safe Navigation:** 외부 링크 클릭 시 반드시 `target="_blank"` 및 `rel="noopener noreferrer"`를 적용합니다.
 
+### 4. 언어 및 커뮤니케이션 지침
+- **Korean First:** 모든 문서 작성, 코드 주석, AI와의 대화 및 작업 결과물(계획, 테스크, 워크스루 등)은 반드시 한글을 사용합니다.
+- **Commit Messages:** 커밋 메시지는 상세하게 한글로 작성합니다.
+
 ---
 
 ## 📚 참고 문서
