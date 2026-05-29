@@ -1,16 +1,79 @@
 "use client";
 
-import { useState } from "react";
-import { dummyLinks, Link } from "../data/links";
+import { useState, useEffect } from "react";
+import { Link } from "../data/links";
 import { Card, CardContent } from "@/components/ui/card";
 import { LinkAddDialog } from "@/components/link-add-dialog";
 import { RiExternalLinkLine } from "@remixicon/react";
+import { db } from "@/lib/firebase";
+import { collection, onSnapshot, query, orderBy, addDoc, serverTimestamp } from "firebase/firestore";
+
+// Premium UX를 위한 스켈레톤 로더 컴포넌트
+const SkeletonLoader = () => (
+  <div className="flex flex-col gap-4 w-full">
+    {[1, 2, 3].map((i) => (
+      <Card key={i} className="border-none bg-white dark:bg-slate-900 shadow-sm ring-1 ring-slate-200/50 dark:ring-slate-800/50 overflow-hidden animate-pulse">
+        <CardContent className="flex items-center gap-4 p-5">
+          <div className="w-12 h-12 rounded-2xl bg-slate-200/60 dark:bg-slate-800/60 flex-shrink-0" />
+          <div className="flex-1 space-y-2">
+            <div className="h-5 bg-slate-200/70 dark:bg-slate-800/70 rounded w-1/3" />
+            <div className="h-3 bg-slate-200/50 dark:bg-slate-800/50 rounded w-1/2" />
+          </div>
+          <div className="w-5 h-5 bg-slate-200/60 dark:bg-slate-800/60 rounded-full flex-shrink-0" />
+        </CardContent>
+      </Card>
+    ))}
+  </div>
+);
 
 export default function Page() {
-  const [links, setLinks] = useState<Link[]>(dummyLinks);
+  const [links, setLinks] = useState<Link[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const handleAddLink = (newLink: Link) => {
-    setLinks((prev) => [newLink, ...prev]);
+  // Firestore users/anonymous/links 실시간 동기화
+  useEffect(() => {
+    const q = query(
+      collection(db, "users", "anonymous", "links"),
+      orderBy("createdAt", "desc")
+    );
+
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const fetchedLinks: Link[] = [];
+        snapshot.forEach((doc) => {
+          const data = doc.data();
+          fetchedLinks.push({
+            id: doc.id,
+            title: data.title || "",
+            url: data.url || "",
+            icon: data.icon || "",
+          });
+        });
+        setLinks(fetchedLinks);
+        setIsLoading(false);
+      },
+      (error) => {
+        console.error("Firestore에서 링크 데이터를 가져오는 중 오류가 발생했습니다:", error);
+        setIsLoading(false);
+      }
+    );
+
+    return () => unsubscribe();
+  }, []);
+
+  const handleAddLink = async (newLink: Link) => {
+    try {
+      await addDoc(collection(db, "users", "anonymous", "links"), {
+        title: newLink.title,
+        url: newLink.url,
+        icon: newLink.icon || "",
+        createdAt: serverTimestamp(),
+      });
+    } catch (error) {
+      console.error("Firestore에 링크를 저장하는 도중 오류가 발생했습니다:", error);
+      throw error; // 하위 컴포넌트(dialog)에서 에러 캐치를 진행할 수 있도록 전파합니다.
+    }
   };
 
   return (
@@ -34,7 +97,9 @@ export default function Page() {
 
         {/* Links List Section */}
         <div className="flex flex-col gap-4">
-          {links.length > 0 ? (
+          {isLoading ? (
+            <SkeletonLoader />
+          ) : links.length > 0 ? (
             links.map((link) => (
               <a
                 key={link.id}
@@ -72,8 +137,8 @@ export default function Page() {
                   </CardContent>
                 </Card>
               </a>
-            )
-          )) : (
+            ))
+          ) : (
             <div className="py-20 text-center space-y-3 bg-white/50 dark:bg-slate-900/50 rounded-3xl border-2 border-dashed border-slate-200 dark:border-slate-800">
               <p className="text-slate-400 dark:text-slate-500 font-medium whitespace-pre-wrap">
                 등록된 링크가 없습니다.{"\n"}첫 번째 링크를 추가해보세요!

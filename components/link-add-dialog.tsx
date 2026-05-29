@@ -45,7 +45,7 @@ const linkSchema = z.object({
 type LinkFormValues = z.infer<typeof linkSchema>;
 
 interface LinkAddDialogProps {
-  onAdd: (link: Link) => void;
+  onAdd: (link: Link) => Promise<void> | void;
 }
 
 export function LinkAddDialog({ onAdd }: LinkAddDialogProps) {
@@ -78,9 +78,6 @@ export function LinkAddDialog({ onAdd }: LinkAddDialogProps) {
   const onSubmit = async (data: LinkFormValues) => {
     setIsSubmitting(true);
 
-    // 서버 연결 상태 시뮬레이션 (1.5초 대기)
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-
     let finalUrl = data.url.trim();
     if (!/^https?:\/\//i.test(finalUrl)) {
       finalUrl = "https://" + finalUrl;
@@ -101,10 +98,15 @@ export function LinkAddDialog({ onAdd }: LinkAddDialogProps) {
       icon: `https://www.google.com/s2/favicons?domain=${domain}&sz=64`,
     };
 
-    onAdd(newLink);
-    setIsSubmitting(false);
-    setOpen(false);
-    reset();
+    try {
+      await onAdd(newLink);
+      setOpen(false);
+      reset();
+    } catch (error) {
+      console.error("링크 추가 중 오류 발생:", error);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
