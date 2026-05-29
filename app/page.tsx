@@ -19,6 +19,7 @@ import {
   query,
   orderBy,
   addDoc,
+  setDoc,
   serverTimestamp,
   doc,
   updateDoc,
@@ -69,9 +70,28 @@ export default function Page() {
 
   // Auth 상태 변경 실시간 구독
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser)
       setIsAuthLoading(false)
+
+      if (currentUser) {
+        try {
+          // 사용자 로그인 성공 시, users/{uid} 문서에 상세 메타데이터 저장 및 병합
+          const userRef = doc(db, "users", currentUser.uid)
+          await setDoc(
+            userRef,
+            {
+              email: currentUser.email || "",
+              displayName: currentUser.displayName || "",
+              photoURL: currentUser.photoURL || "",
+              updatedAt: serverTimestamp(),
+            },
+            { merge: true }
+          )
+        } catch (error) {
+          console.error("사용자 정보 데이터베이스 저장 실패:", error)
+        }
+      }
     })
     return () => unsubscribe()
   }, [])
