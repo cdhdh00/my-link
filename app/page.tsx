@@ -22,6 +22,7 @@ import { GlobalHeader } from "@/components/global-header"
 import { ProfileEditDialog } from "@/components/profile-edit-dialog"
 import { useAuthSync, useProfile } from "@/hooks/use-profile"
 import { useLinks, useAddLink, useUpdateLink, useDeleteLink } from "@/hooks/use-links"
+import { LandingSection } from "@/components/landing-section"
 
 // Premium UX를 위한 스켈레톤 로더 컴포넌트
 const SkeletonLoader = () => (
@@ -214,88 +215,7 @@ export default function Page() {
             </div>
           </div>
         ) : (
-          /* 미로그인 상태의 웰컴/안내 화면 (Premium Landing UX) */
-          <div className="mx-auto mt-12 flex w-full max-w-[640px] flex-col items-center gap-10 pb-20 text-center">
-            {/* 메인 히어로 장식 */}
-            <div className="relative">
-              <div className="absolute -inset-1 rounded-full bg-gradient-to-r from-primary to-purple-600 opacity-20 blur-xl dark:opacity-35" />
-              <div className="relative mb-2 inline-flex h-20 w-20 items-center justify-center rounded-[32px] bg-white shadow-2xl ring-1 ring-slate-200/60 dark:bg-slate-800 dark:ring-slate-700/60">
-                <RiLinksLine className="h-10 w-10 text-primary animate-pulse" />
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <div className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3.5 py-1.5 text-xs font-bold text-primary dark:bg-primary/25">
-                <RiSparklingLine size={13} className="animate-spin-slow" />
-                <span>100% 무료 소셜 링크 링크 보드</span>
-              </div>
-              <h1 className="text-4xl font-black tracking-tight text-slate-900 sm:text-5xl dark:text-white">
-                모든 소셜 및 포트폴리오를
-                <br />
-                <span className="bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent">
-                  단 하나의 링크
-                </span>
-                로 공유하세요
-              </h1>
-              <p className="mx-auto max-w-[480px] text-base font-semibold leading-relaxed text-slate-500 dark:text-slate-400">
-                흩어져 있는 인스타그램, 유튜브, 블로그, 깃허브 포트폴리오를 멋지게 모아 나만의 아름다운 커스텀 보드를 디자인하세요.
-              </p>
-            </div>
-
-            {/* 주요 혜택 카드 목록 */}
-            <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-3">
-              <Card className="border-none bg-white shadow-sm ring-1 ring-slate-200/50 transition-all hover:-translate-y-0.5 dark:bg-slate-900 dark:ring-slate-800/50">
-                <CardContent className="flex flex-col items-center p-5 gap-3">
-                  <div className="rounded-xl bg-blue-50 p-2 text-blue-500 dark:bg-blue-950/40">
-                    <RiShieldUserLine size={20} />
-                  </div>
-                  <h3 className="font-bold text-slate-800 dark:text-slate-200 text-sm">구글 소셜 로그인</h3>
-                  <p className="text-xs text-slate-400 dark:text-slate-500">1초 만에 안전하고 빠르게 로그인하고 시작하세요.</p>
-                </CardContent>
-              </Card>
-
-              <Card className="border-none bg-white shadow-sm ring-1 ring-slate-200/50 transition-all hover:-translate-y-0.5 dark:bg-slate-900 dark:ring-slate-800/50">
-                <CardContent className="flex flex-col items-center p-5 gap-3">
-                  <div className="rounded-xl bg-purple-50 p-2 text-purple-500 dark:bg-purple-950/40">
-                    <RiSparklingLine size={20} />
-                  </div>
-                  <h3 className="font-bold text-slate-800 dark:text-slate-200 text-sm">자동 파비콘 추출</h3>
-                  <p className="text-xs text-slate-400 dark:text-slate-500">도메인을 분석해 해당 웹사이트의 대표 아이콘을 자동 등록합니다.</p>
-                </CardContent>
-              </Card>
-
-              <Card className="border-none bg-white shadow-sm ring-1 ring-slate-200/50 transition-all hover:-translate-y-0.5 dark:bg-slate-900 dark:ring-slate-800/50">
-                <CardContent className="flex flex-col items-center p-5 gap-3">
-                  <div className="rounded-xl bg-emerald-50 p-2 text-emerald-500 dark:bg-emerald-950/40">
-                    <RiSmartphoneLine size={20} />
-                  </div>
-                  <h3 className="font-bold text-slate-800 dark:text-slate-200 text-sm">모바일 우선 디자인</h3>
-                  <p className="text-xs text-slate-400 dark:text-slate-500">모바일에 맞춤화되어 어떤 기기에서든 깔끔하게 보여집니다.</p>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* 핵심 로그인 안내 상자 */}
-            <div className="w-full rounded-[24px] border border-dashed border-slate-200 bg-white/40 p-8 shadow-sm backdrop-blur-sm dark:border-slate-800 dark:bg-slate-900/30">
-              <h2 className="text-xl font-bold text-slate-800 dark:text-slate-200">링크 보드를 사용할 준비가 되셨나요?</h2>
-              <p className="mt-2 text-sm font-semibold text-slate-500 dark:text-slate-400">
-                지금 Google 로그인으로 1초 만에 개인화된 관리 대시보드를 생성하여 나만의 단일 연결 통로를 만들어 보세요!
-              </p>
-              
-              <Button
-                onClick={handleLogin}
-                disabled={isLoggingIn}
-                className="mt-6 h-12 gap-2 rounded-2xl bg-primary px-8 text-sm font-bold text-white shadow-md shadow-primary/20 transition-all hover:bg-primary/95 hover:shadow-lg hover:shadow-primary/30"
-              >
-                {isLoggingIn ? (
-                  <RiLoader4Line size={18} className="animate-spin" />
-                ) : (
-                  <RiGoogleFill size={18} />
-                )}
-                <span>Google 계정으로 1초 만에 시작하기</span>
-              </Button>
-            </div>
-          </div>
+          <LandingSection onLogin={handleLogin} isLoggingIn={isLoggingIn} />
         )}
       </main>
 
