@@ -50,21 +50,35 @@ export function LinkAddDialog({ onAdd }: LinkAddDialogProps) {
     let hasError = false;
     const newErrors = { title: "", url: "" };
 
-    if (!title.trim()) {
+    // 제목 검증
+    const trimmedTitle = title.trim();
+    if (!trimmedTitle) {
       newErrors.title = "링크 제목을 입력해주세요.";
+      hasError = true;
+    } else if (trimmedTitle.length < 2) {
+      newErrors.title = "제목은 최소 2자 이상이어야 합니다.";
+      hasError = true;
+    } else if (trimmedTitle.length > 32) {
+      newErrors.title = "제목은 최대 32자까지 입력 가능합니다.";
       hasError = true;
     }
 
-    if (!url.trim()) {
+    // URL 검증
+    const trimmedUrl = url.trim();
+    if (!trimmedUrl) {
       newErrors.url = "연결할 URL을 입력해주세요.";
       hasError = true;
     } else {
-      let parsedUrl = url.trim();
-      if (!/^https?:\/\//i.test(parsedUrl)) {
-        parsedUrl = "https://" + parsedUrl;
+      let finalUrl = trimmedUrl;
+      if (!/^https?:\/\//i.test(finalUrl)) {
+        finalUrl = "https://" + finalUrl;
       }
-      if (!validateUrl(parsedUrl)) {
-        newErrors.url = "올바른 URL 형식이 아닙니다.";
+      
+      // 기본적인 URL 구조 체크 (도메인 포함 여부)
+      const urlPattern = /^(https?:\/\/)?([\da-z.-]+)\.([a-z.]{2,6})([/\w .-]*)*\/?$/;
+      
+      if (!urlPattern.test(finalUrl) || !validateUrl(finalUrl)) {
+        newErrors.url = "올바른 URL 형식이 아닙니다. (예: example.com)";
         hasError = true;
       }
     }
@@ -125,20 +139,26 @@ export function LinkAddDialog({ onAdd }: LinkAddDialogProps) {
         <form onSubmit={handleSubmit} className="flex flex-col gap-6 mt-4">
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label
-                htmlFor="title"
-                className={`text-sm font-medium flex items-center gap-1.5 ${
-                  errors.title ? "text-red-500" : "text-slate-700 dark:text-slate-300"
-                }`}
-              >
-                <RiText size={16} />
-                링크 제목
-              </Label>
+              <div className="flex items-center justify-between">
+                <Label
+                  htmlFor="title"
+                  className={`text-sm font-medium flex items-center gap-1.5 ${
+                    errors.title ? "text-red-500" : "text-slate-700 dark:text-slate-300"
+                  }`}
+                >
+                  <RiText size={16} />
+                  링크 제목
+                </Label>
+                <span className={`text-[10px] font-mono ${title.length > 32 ? "text-red-500" : "text-slate-400"}`}>
+                  {title.length}/32
+                </span>
+              </div>
               <Input
                 id="title"
                 placeholder="예: 인스타그램, 내 포트폴리오 등"
                 value={title}
                 disabled={isSubmitting}
+                maxLength={40}
                 onChange={(e) => {
                   setTitle(e.target.value);
                   if (errors.title) setErrors((prev) => ({ ...prev, title: "" }));
