@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { Link } from "../data/links";
 import { Card, CardContent } from "@/components/ui/card";
 import { LinkAddDialog } from "@/components/link-add-dialog";
-import { RiExternalLinkLine } from "@remixicon/react";
+import { RiExternalLinkLine, RiLoader4Line } from "@remixicon/react";
 import { db } from "@/lib/firebase";
 import { collection, onSnapshot, query, orderBy, addDoc, serverTimestamp } from "firebase/firestore";
 
@@ -29,6 +29,7 @@ const SkeletonLoader = () => (
 export default function Page() {
   const [links, setLinks] = useState<Link[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isUpdating, setIsUpdating] = useState(false);
 
   // Firestore users/anonymous/links 실시간 동기화
   useEffect(() => {
@@ -52,10 +53,12 @@ export default function Page() {
         });
         setLinks(fetchedLinks);
         setIsLoading(false);
+        setIsUpdating(false);
       },
       (error) => {
         console.error("Firestore에서 링크 데이터를 가져오는 중 오류가 발생했습니다:", error);
         setIsLoading(false);
+        setIsUpdating(false);
       }
     );
 
@@ -63,6 +66,7 @@ export default function Page() {
   }, []);
 
   const handleAddLink = async (newLink: Link) => {
+    setIsUpdating(true);
     try {
       await addDoc(collection(db, "users", "anonymous", "links"), {
         title: newLink.title,
@@ -72,6 +76,7 @@ export default function Page() {
       });
     } catch (error) {
       console.error("Firestore에 링크를 저장하는 도중 오류가 발생했습니다:", error);
+      setIsUpdating(false);
       throw error; // 하위 컴포넌트(dialog)에서 에러 캐치를 진행할 수 있도록 전파합니다.
     }
   };
@@ -96,7 +101,18 @@ export default function Page() {
         <LinkAddDialog onAdd={handleAddLink} />
 
         {/* Links List Section */}
-        <div className="flex flex-col gap-4">
+        <div className="relative flex flex-col gap-4 min-h-[120px]">
+          {isUpdating && (
+            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center rounded-3xl bg-[#F8FAFC]/75 dark:bg-[#0F172A]/75 backdrop-blur-[2px] transition-all duration-300 animate-in fade-in">
+              <div className="flex flex-col items-center gap-3 p-6 bg-white dark:bg-slate-900 rounded-2xl shadow-lg ring-1 ring-slate-200/50 dark:ring-slate-800/50">
+                <RiLoader4Line size={28} className="animate-spin text-primary" />
+                <span className="text-sm font-semibold text-slate-600 dark:text-slate-300">
+                  링크를 저장하고 목록을 갱신 중입니다...
+                </span>
+              </div>
+            </div>
+          )}
+
           {isLoading ? (
             <SkeletonLoader />
           ) : links.length > 0 ? (
