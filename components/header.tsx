@@ -12,6 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { toast } from "sonner"
 
 interface HeaderProps {
   user: User | null
@@ -44,9 +45,11 @@ export function Header({ user, onLogin, onLogout, isLoggingIn }: HeaderProps) {
     try {
       await navigator.clipboard.writeText(myLinkUrl)
       setCopied(true)
+      toast.success("마이링크 주소가 클립보드에 복사되었습니다!")
       setTimeout(() => setCopied(false), 2000)
     } catch (err) {
       console.error("클립보드 복사 실패:", err)
+      toast.error("링크 복사에 실패했습니다. 다시 시도해 주세요.")
     }
   }
 
