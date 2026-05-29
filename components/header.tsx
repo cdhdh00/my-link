@@ -12,6 +12,13 @@ interface HeaderProps {
 }
 
 export function Header({ user, onLogin, onLogout, isLoggingIn }: HeaderProps) {
+  const getDisplayName = (email: string | null) => {
+    if (!email) return "사용자"
+    return email.split("@")[0]
+  }
+
+  const displayName = getDisplayName(user?.email || null)
+
   return (
     <header className="sticky top-0 z-50 w-full border-b border-slate-200/50 bg-[#F8FAFC]/80 backdrop-blur-md dark:border-slate-800/50 dark:bg-[#0F172A]/80">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
@@ -32,7 +39,7 @@ export function Header({ user, onLogin, onLogout, isLoggingIn }: HeaderProps) {
               {/* 유저 아바타 및 이름 */}
               <div className="hidden flex-col items-end sm:flex">
                 <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">
-                  {user.displayName || "사용자"}
+                  {displayName}
                 </span>
                 <span className="text-xs text-slate-400 dark:text-slate-500">
                   {user.email}
@@ -42,13 +49,13 @@ export function Header({ user, onLogin, onLogout, isLoggingIn }: HeaderProps) {
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={user.photoURL}
-                  alt={user.displayName || "Avatar"}
+                  alt={displayName}
                   className="h-9 w-9 rounded-full ring-2 ring-primary/20 shadow-sm"
                   referrerPolicy="no-referrer"
                 />
               ) : (
                 <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary">
-                  {(user.displayName || "U").charAt(0).toUpperCase()}
+                  {displayName.charAt(0).toUpperCase()}
                 </div>
               )}
 

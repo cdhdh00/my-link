@@ -230,6 +230,13 @@ export default function Page() {
     )
   }
 
+  const getPageDisplayName = (email: string | null) => {
+    if (!email) return "내"
+    return email.split("@")[0]
+  }
+
+  const pageDisplayName = getPageDisplayName(user?.email || null)
+
   return (
     <div className="flex min-h-svh flex-col bg-[#F8FAFC] dark:bg-[#0F172A]">
       {/* 글로벌 상단 헤더 */}
@@ -251,18 +258,18 @@ export default function Page() {
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={user.photoURL}
-                    alt={user.displayName || "User"}
+                    alt={pageDisplayName}
                     className="h-full w-full rounded-3xl object-cover ring-2 ring-primary/25"
                     referrerPolicy="no-referrer"
                   />
                 ) : (
                   <span className="text-3xl font-black text-primary">
-                    {(user.displayName || "M").charAt(0).toUpperCase()}
+                    {pageDisplayName.charAt(0).toUpperCase()}
                   </span>
                 )}
               </div>
               <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">
-                {user.displayName || "내"} 마이링크
+                {pageDisplayName} 마이링크
               </h1>
               <p className="text-base font-medium text-slate-500 dark:text-slate-400">
                 나만의 맞춤 링크 보드를 실시간으로 관리하세요
