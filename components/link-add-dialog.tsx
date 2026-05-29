@@ -1,6 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
 import { Link } from "@/data/links";
 import {
   Dialog,
@@ -15,90 +18,77 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RiAddLine, RiLink, RiText, RiLoader4Line } from "@remixicon/react";
 
+// Zod 스키마 정의
+const linkSchema = z.object({
+  title: z
+    .string()
+    .min(1, "링크 제목을 입력해주세요.")
+    .min(2, "제목은 최소 2자 이상이어야 합니다.")
+    .max(32, "제목은 최대 32자까지 입력 가능합니다."),
+  url: z
+    .string()
+    .min(1, "연결할 URL을 입력해주세요.")
+    .refine((val) => {
+      let testUrl = val.trim();
+      if (!/^https?:\/\//i.test(testUrl)) {
+        testUrl = "https://" + testUrl;
+      }
+      try {
+        new URL(testUrl);
+        return /^(https?:\/\/)?([\da-z.-]+)\.([a-z.]{2,6})([/\w .-]*)*\/?$/.test(testUrl);
+      } catch {
+        return false;
+      }
+    }, "올바른 URL 형식이 아닙니다. (예: example.com)"),
+});
+
+type LinkFormValues = z.infer<typeof linkSchema>;
+
 interface LinkAddDialogProps {
   onAdd: (link: Link) => void;
 }
 
 export function LinkAddDialog({ onAdd }: LinkAddDialogProps) {
   const [open, setOpen] = useState(false);
-  const [title, setTitle] = useState("");
-  const [url, setUrl] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [errors, setErrors] = useState({ title: "", url: "" });
+
+  const {
+    register,
+    handleSubmit,
+    reset,
+    watch,
+    formState: { errors },
+  } = useForm<LinkFormValues>({
+    resolver: zodResolver(linkSchema),
+    defaultValues: {
+      title: "",
+      url: "",
+    },
+  });
+
+  const titleValue = watch("title", "");
 
   const handleOpenChange = (isOpen: boolean) => {
     setOpen(isOpen);
     if (!isOpen) {
-      setTitle("");
-      setUrl("");
-      setErrors({ title: "", url: "" });
+      reset();
     }
   };
 
-  const validateUrl = (testUrl: string) => {
-    try {
-      new URL(testUrl);
-      return true;
-    } catch {
-      return false;
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    let hasError = false;
-    const newErrors = { title: "", url: "" };
-
-    // 제목 검증
-    const trimmedTitle = title.trim();
-    if (!trimmedTitle) {
-      newErrors.title = "링크 제목을 입력해주세요.";
-      hasError = true;
-    } else if (trimmedTitle.length < 2) {
-      newErrors.title = "제목은 최소 2자 이상이어야 합니다.";
-      hasError = true;
-    } else if (trimmedTitle.length > 32) {
-      newErrors.title = "제목은 최대 32자까지 입력 가능합니다.";
-      hasError = true;
-    }
-
-    // URL 검증
-    const trimmedUrl = url.trim();
-    if (!trimmedUrl) {
-      newErrors.url = "연결할 URL을 입력해주세요.";
-      hasError = true;
-    } else {
-      let finalUrl = trimmedUrl;
-      if (!/^https?:\/\//i.test(finalUrl)) {
-        finalUrl = "https://" + finalUrl;
-      }
-      
-      // 기본적인 URL 구조 체크 (도메인 포함 여부)
-      const urlPattern = /^(https?:\/\/)?([\da-z.-]+)\.([a-z.]{2,6})([/\w .-]*)*\/?$/;
-      
-      if (!urlPattern.test(finalUrl) || !validateUrl(finalUrl)) {
-        newErrors.url = "올바른 URL 형식이 아닙니다. (예: example.com)";
-        hasError = true;
-      }
-    }
-
-    setErrors(newErrors);
-    if (hasError) return;
-
+  const onSubmit = async (data: LinkFormValues) => {
     setIsSubmitting(true);
 
-    // 서버 서버 연결 상태 시뮬레이션 (1.5초 대기)
+    // 서버 연결 상태 시뮬레이션 (1.5초 대기)
     await new Promise((resolve) => setTimeout(resolve, 1500));
 
-    let parsedUrl = url.trim();
-    if (!/^https?:\/\//i.test(parsedUrl)) {
-      parsedUrl = "https://" + parsedUrl;
+    let finalUrl = data.url.trim();
+    if (!/^https?:\/\//i.test(finalUrl)) {
+      finalUrl = "https://" + finalUrl;
     }
 
     let domain = "";
     try {
-      const urlObj = new URL(parsedUrl);
+      const urlObj = new URL(finalUrl);
       domain = urlObj.hostname;
     } catch (error) {
       domain = "default";
@@ -106,16 +96,15 @@ export function LinkAddDialog({ onAdd }: LinkAddDialogProps) {
 
     const newLink: Link = {
       id: Date.now().toString(),
-      title: title.trim(),
-      url: parsedUrl,
+      title: data.title.trim(),
+      url: finalUrl,
       icon: `https://www.google.com/s2/favicons?domain=${domain}&sz=64`,
     };
 
     onAdd(newLink);
     setIsSubmitting(false);
     setOpen(false);
-    setTitle("");
-    setUrl("");
+    reset();
   };
 
   return (
@@ -136,8 +125,9 @@ export function LinkAddDialog({ onAdd }: LinkAddDialogProps) {
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-6 mt-4">
+        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-6 mt-4">
           <div className="space-y-4">
+            {/* 제목 필드 */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label
@@ -149,31 +139,27 @@ export function LinkAddDialog({ onAdd }: LinkAddDialogProps) {
                   <RiText size={16} />
                   링크 제목
                 </Label>
-                <span className={`text-[10px] font-mono ${title.length > 32 ? "text-red-500" : "text-slate-400"}`}>
-                  {title.length}/32
+                <span className={`text-[10px] font-mono ${titleValue.length > 32 ? "text-red-500" : "text-slate-400"}`}>
+                  {titleValue.length}/32
                 </span>
               </div>
               <Input
                 id="title"
                 placeholder="예: 인스타그램, 내 포트폴리오 등"
-                value={title}
                 disabled={isSubmitting}
-                maxLength={40}
-                onChange={(e) => {
-                  setTitle(e.target.value);
-                  if (errors.title) setErrors((prev) => ({ ...prev, title: "" }));
-                }}
+                {...register("title")}
                 className={`h-11 rounded-xl px-4 bg-slate-50 dark:bg-slate-900 border-none ring-1 ring-slate-200 dark:ring-slate-800 focus-visible:ring-2 focus-visible:ring-primary transition-all ${
                   errors.title ? "ring-red-500 bg-red-50/30 dark:bg-red-950/20" : ""
                 }`}
               />
               {errors.title && (
                 <p className="text-xs text-red-500 font-medium ml-1 animate-in fade-in slide-in-from-top-1">
-                  {errors.title}
+                  {errors.title.message}
                 </p>
               )}
             </div>
 
+            {/* URL 필드 */}
             <div className="space-y-2">
               <Label
                 htmlFor="url"
@@ -187,19 +173,15 @@ export function LinkAddDialog({ onAdd }: LinkAddDialogProps) {
               <Input
                 id="url"
                 placeholder="예: instagram.com/username"
-                value={url}
                 disabled={isSubmitting}
-                onChange={(e) => {
-                  setUrl(e.target.value);
-                  if (errors.url) setErrors((prev) => ({ ...prev, url: "" }));
-                }}
+                {...register("url")}
                 className={`h-11 rounded-xl px-4 bg-slate-50 dark:bg-slate-900 border-none ring-1 ring-slate-200 dark:ring-slate-800 focus-visible:ring-2 focus-visible:ring-primary transition-all ${
                   errors.url ? "ring-red-500 bg-red-50/30 dark:bg-red-950/20" : ""
                 }`}
               />
               {errors.url && (
                 <p className="text-xs text-red-500 font-medium ml-1 animate-in fade-in slide-in-from-top-1">
-                  {errors.url}
+                  {errors.url.message}
                 </p>
               )}
             </div>
